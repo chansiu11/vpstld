@@ -27,3 +27,20 @@ h1 span{color:#f98f51}.underline{width:40%;height:5px;background:var(--cyan);mar
 @media(pointer:coarse){#touch{display:flex}.frame{max-height:65vh}.shell{padding:6px}h1{font-size:clamp(43px,8vw,100px)}.menu-inner{max-height:98%}.instructions{font-size:8px}.mode-buttons button{padding:7px}.subtitle{font-size:10px}}
 @media(max-width:700px){.touch-side{gap:3px}.touch-side button{min-width:38px;min-height:43px;padding:4px 6px;font-size:12px}.footnote{font-size:10px}.mode-buttons{width:90%}.menu-inner{width:96%}.instructions{margin:6px 0}.maps{margin:5px}}
 @media(max-height:450px) and (orientation:landscape){.frame{max-height:100vh;max-width:calc(100vh * 16 / 9);margin:auto}.footnote{display:none}.shell{display:flex;align-items:center;gap:4px;width:100vw;max-width:none;margin:0}.touch-side{flex-direction:column;justify-content:center}.touch-side button{min-height:34px}.menu-inner{padding:2px}h1{font-size:45px;margin:4px 0}.underline,.legal{display:none}.instructions{font-size:8px;line-height:1.2}.mode-buttons{gap:3px}.mode-buttons button{padding:4px}}
+
+/* Full-bleed pixel visuals: no artificial CRT overlay or browser-game HUD. */
+#scanlines,.hud{display:none!important}
+.frame{border:0;box-shadow:0 0 0 2px #060606,0 16px 48px #000a}
+.overlay{background:rgba(11,10,12,.86)}
+.menu-inner{padding:18px 10px}
+h1{letter-spacing:.035em;line-height:.82;color:#f6eb0a;text-shadow:6px 6px 0 #ba512a,-3px -2px 0 #282115}
+h1 span{color:#fc9652}
+.underline{background:#f5e718;height:3px;width:46%}
+.mode-buttons button,.stack button,#again,#resultBack{border:2px solid #eee4bd;background:#0b0b0a;color:#fffde9;box-shadow:4px 4px 0 #000;padding:12px}
+.mode-buttons button:hover,.stack button:hover,#again:hover{background:#f6ea05;color:#15120d}
+.mode-buttons small{color:#f89a56}
+.maps select{background:#0b0c0a;border:2px solid #878772}
+.instructions{color:#c4c0a9}
+.mute{background:#1119;border:0;opacity:.6}
+@media (pointer:coarse){.mode-buttons button{padding:8px}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
