@@ -105,7 +105,7 @@ function control(p,k={},dt){
  if(p.y<GROUND-2&&!grounded&&p.attack<=0)p.action=p.vy<0?"jump":"fall";
  if(k.left&&k.right&&grounded&&p.roll<=0&&p.attack<=0){p.action="engarde";p.vx=p.dir*15;}
  if(k.attack&&!p.prevAttack){
-   if(k.up&&p.sword&&p.throwCool<=0&&!p.throwReady&&p.level!==2)p.throwReady=true;
+   if(k.up&&p.sword&&p.throwCool<=0&&!p.throwReady)p.throwReady=true;
    trigger(p,"attack");
  }
  if(k.jump&&!p.prevJump)trigger(p,"jump");
