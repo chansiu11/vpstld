@@ -155,3 +155,22 @@ test("mine tunnel ceilings stop high jumps and prevent overhead throws",()=>{
  g.frame(35);
  assert.ok(a.y>=164,"head should not pass through mine ceiling");
 });
+
+test("simultaneous up + attack throws the game blade immediately",()=>{
+ const g=boot();g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const a=g.window.__state().players[0];a.level=1;a.sword=true;
+ g.input("w");g.input("f");g.frame(2);
+ assert.equal(a.sword,false,"instant overhead throw should leave fencer unarmed");
+ g.input("f",false);g.input("w",false);
+});
+test("online opponent uses the host's stage selection",()=>{
+ const g=boot();g.elt("stage").value="castle";
+ g.modes.find(x=>x.dataset.mode==="online").onclick();
+ g.elt("serverUrl").value="wss://example.invalid";
+ g.elt("roomCode").value="DUEL01";g.elt("connectBtn").onclick();
+ const socket=g.MockSocket.current;socket.onopen();
+ socket.onmessage({data:JSON.stringify({type:"joined",playerId:1,stage:"mines"})});
+ assert.equal(g.elt("stage").value,"mines");
+ socket.onmessage({data:JSON.stringify({type:"start"})});
+ assert.equal(g.window.__state().stage,"mines");
+});
