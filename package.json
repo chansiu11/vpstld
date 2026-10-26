@@ -5,7 +5,8 @@
   "description": "Optional WebSocket room relay for Fencing Duel",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test tests/smoke.cjs"
   },
   "engines": {
     "node": ">=20"
