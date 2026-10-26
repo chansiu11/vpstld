@@ -9,8 +9,34 @@ const terrainGaps={
  mines:[],
  clouds:[[-747,-688],[-303,-244],[222,284],[653,711]]
 };
-function isGap(stage,x){return (terrainGaps[stage]||[]).some(([a,b])=>x>a&&x<b)}
-window.FencingTerrain={isGap,gaps:terrainGaps};
+const crumble=new Map();
+const cloudCell=x=>Math.floor((x+960)/48)*48-960;
+const cloudCells=()=>[...crumble.entries()].filter(([,t])=>t<=0).map(([cell])=>[cell,cell+48]);
+function isGap(stage,x){
+ if((terrainGaps[stage]||[]).some(([a,b])=>x>a&&x<b))return true;
+ if(stage==="clouds"&&(crumble.get(cloudCell(x))??1)>0)return false;
+ return stage==="clouds"&&crumble.has(cloudCell(x));
+}
+function ceilingY(stage,x){
+ if(stage!=="mines")return null;
+ const tunnels=[[-715,-520],[-170,35],[391,615]];
+ return tunnels.some(([a,b])=>x>=a&&x<=b)?127:null;
+}
+function nearLedge(stage,x){
+ return (terrainGaps[stage]||[]).some(([a,b])=>Math.abs(x-a)<10||Math.abs(x-b)<10)
+   || (stage==="clouds"&&[...crumble.keys()].some(v=>(crumble.get(v)??1)<=0&&(Math.abs(x-v)<9||Math.abs(x-(v+48))<9)));
+}
+function updateDynamic(stage,players,dt){
+ if(stage!=="clouds")return;
+ for(const p of players){
+   if(!p.alive||!p.lastGround||p.y<173||isGap(stage,p.x))continue;
+   const cell=cloudCell(p.x);
+   const n=(crumble.get(cell)??.78)-dt;
+   crumble.set(cell,Math.max(0,n));
+ }
+}
+function resetDynamic(){crumble.clear()}
+window.FencingTerrain={isGap,gaps:terrainGaps,ceilingY,nearLedge,updateDynamic,resetDynamic,crumble};
 
 function R(c,x,y,w,h,color){if(w<=0||h<=0)return;c.fillStyle=color;c.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h))}
 function random(seed){return function(){seed=(Math.imul(1664525,seed)+1013904223)|0;return (seed>>>0)/4294967296}}
@@ -119,7 +145,7 @@ if(!cache.has(stage))cache.set(stage,create(stage));
 const scene=cache.get(stage);
 R(g,0,0,WIDTH,HEIGHT,"#111");
 const x=Math.round(LEFT-camera+WIDTH/2);g.drawImage(scene,x,0);
-for(const [a,b] of terrainGaps[stage]||[]){
+for(const [a,b] of (stage==="clouds"?[...terrainGaps[stage],...cloudCells()]:terrainGaps[stage]||[])){
   const left=a-camera+WIDTH/2,width=b-a;
   R(g,left,168,width,48,stage==="wilds"?"#366d96":"#352239");
   if(stage==="wilds"){
@@ -194,7 +220,21 @@ if(p.sword){
 if(action==="punch"&&p.attack>.055)line(g,x+f*7,y-25,x+f*19,y-22,c,4);
 }
 
-function foreground(g,stage,camera,time){if(stage==="wilds"){for(let i=0;i<80;i++){const xx=i*29-960-camera+WIDTH/2;if(xx<-20||xx>WIDTH+20)continue;const h=(i*9)%7+2;R(g,xx,GROUND-h,1,h,"#242922");if(i%3===0)R(g,xx+4,GROUND-4,2,4,"#4b5e35")}}
+function foreground(g,stage,camera,time){
+if(stage==="clouds"){
+ for(const [cell,seconds] of crumble.entries()){
+   if(seconds<=0)continue;
+   const x=Math.round(cell-camera+WIDTH/2);
+   if(x<-52||x>WIDTH+52)continue;
+   const worn=seconds<.35;
+   R(g,x,171,48,worn?3:2,worn?"#c799d1":"#cf9bdb");
+   for(let i=0;i<7;i++){
+     const px=x+i*7,py=177+(i%3);
+     if(worn||seconds<.55)R(g,px,py,3,3,seconds<.2?"#643967":"#ad7dbe");
+   }
+ }
+}
+if(stage==="wilds"){for(let i=0;i<80;i++){const xx=i*29-960-camera+WIDTH/2;if(xx<-20||xx>WIDTH+20)continue;const h=(i*9)%7+2;R(g,xx,GROUND-h,1,h,"#242922");if(i%3===0)R(g,xx+4,GROUND-4,2,4,"#4b5e35")}}
 if(stage==="wilds"){const flow=Math.floor(time*19);for(let i=0;i<44;i++){const x=i*41-960-camera+WIDTH/2+(flow+i*7)%31;if(x<0||x>WIDTH)continue;const y=189+(i*13)%23;R(g,x,y,9+(i%4)*3,1,i%2?"#bedce0":"#719abd")}}
 if(stage==="clouds"){for(let i=0;i<22;i++){const x=i*87-960-camera+WIDTH/2;if(x<-10||x>WIDTH+10)continue;const y=171-(i*7)%9;R(g,x+Math.floor(Math.sin(time*.6+i)*2),y,9,2,"#c18bcb")}}
 if(stage==="mines"){const offset=Math.floor(time*22);for(let i=0;i<95;i++){const x=i*23-960-camera+WIDTH/2+offset%23;if(x<-4||x>WIDTH+4)continue;R(g,x,GROUND-1,4,2,i%3?"#e9dd2b":"#b8a517")}}}
