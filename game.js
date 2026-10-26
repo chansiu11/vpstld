@@ -25,7 +25,7 @@ function safeSpawn(x){
 function loseSword(p,vx=90){if(!p.sword)return;p.sword=false;p.throwReady=false;drops.push({x:p.x+p.dir*4,y:p.y-19,vx:p.dir*vx,vy:-85,dir:p.dir,air:false,owner:p.id,ttl:8});sound(730,.065);}
 function knock(p,attacker){if(p.knocked>0)return;p.knockHits++;p.hitMemory=1.6;p.stun=.3;p.vx=attacker.dir*115;loseSword(p);if(p.knockHits>=2||attacker.action!=="punch"){p.knocked=1.05;p.stun=.48;p.action="down";}else p.action="hit";burst(p.x,p.y-20,"#f5deb1",6);sound(210,.08);}
 
-function reset(which=mode){stage=$("stage").value;mode=which;terrain()?.resetDynamic();aiTimer=0;aiActions={};players=[fighter(0,-10),fighter(1,28)];priority=-1;camera=0;round=0;particles=[];drops=[];elapsed=0;finished=false;started=true;flash=0;shake=0;hideMenus();$("hudRoom").textContent="CENTER";$("hudStage").textContent=stage.toUpperCase();$("hudCenter").textContent="FIGHT";}
+function reset(which=mode){stage=$("stage").value;mode=which;terrain()?.resetDynamic();aiTimer=0;aiActions={};for(const k in netKeys[1])delete netKeys[1][k];players=[fighter(0,-10),fighter(1,28)];priority=-1;camera=0;round=0;particles=[];drops=[];elapsed=0;finished=false;started=true;flash=0;shake=0;hideMenus();$("hudRoom").textContent="CENTER";$("hudStage").textContent=stage.toUpperCase();$("hudCenter").textContent="FIGHT";}
 function hideMenus(){["menu","result","onlineMenu"].forEach(id=>$(id).classList.add("hidden"))}
 function showMenu(){started=false;finished=false;if(socket){socket.close();socket=null;}connected=false;hideMenus();$("menu").classList.remove("hidden")}
 function trigger(p,kind){
@@ -103,7 +103,11 @@ function control(p,k={},dt){
  if(p.attack<=0&&p.roll<=0&&!p.crouch&&grounded&&p.action!=="getup")p.action=Math.abs(p.vx)>32?"run":"idle";
  if(p.crouch&&p.roll<=0&&p.attack<=0)p.action=Math.abs(p.vx)>5?"crawl":"crouch";
  if(p.y<GROUND-2&&!grounded&&p.attack<=0)p.action=p.vy<0?"jump":"fall";
- if(k.attack&&!p.prevAttack)trigger(p,"attack");
+ if(k.left&&k.right&&grounded&&p.roll<=0&&p.attack<=0){p.action="engarde";p.vx=p.dir*15;}
+ if(k.attack&&!p.prevAttack){
+   if(k.up&&p.sword&&p.throwCool<=0&&!p.throwReady&&p.level!==2)p.throwReady=true;
+   trigger(p,"attack");
+ }
  if(k.jump&&!p.prevJump)trigger(p,"jump");
  if(k.throw&&!p.prevThrow)trigger(p,"throw");
  p.prevUp=!!k.up;p.prevDown=!!k.down;p.prevAttack=!!k.attack;
@@ -286,7 +290,7 @@ function connect(){const url=$("serverUrl").value.trim(),room=$("roomCode").valu
 try{socket=new WebSocket(url);localStorage.setItem("fencingWs",url);$("onlineStatus").textContent="서버 연결 중...";
 socket.onopen=()=>socket.send(JSON.stringify({type:"join",room,stage:$("stage").value}));
 socket.onmessage=event=>{let m;try{m=JSON.parse(event.data)}catch{return}
-if(m.type==="joined"){onlineId=m.playerId;serverHost=onlineId===0;connected=true;$("onlineStatus").textContent=onlineId===0?"방 생성 완료 · 상대 접속 대기":"상대에게 연결했습니다";mode="online";started=false}
+if(m.type==="joined"){if(["castle","wilds","mines","clouds"].includes(m.stage))$("stage").value=m.stage;onlineId=m.playerId;serverHost=onlineId===0;connected=true;$("onlineStatus").textContent=onlineId===0?"방 생성 완료 · 상대 접속 대기":"상대에게 연결했습니다";mode="online";started=false}
 if(m.type==="start"){if(!started){reset("online");sendKeys()}$("hudCenter").textContent="FIGHT"}
 if(m.type==="input"&&serverHost){netKeys[1]=m.keys||{}}
 if(m.type==="state"&&!serverHost){players=m.players||players;camera=m.camera||0;priority=m.priority;round=m.round;drops=m.drops||[];elapsed=m.elapsed;started=true;if(!$("onlineMenu").classList.contains("hidden"))hideMenus();if(m.finished&&!finished){finished=true;showResult(priority)}}
