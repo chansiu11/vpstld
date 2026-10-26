@@ -104,33 +104,66 @@ function kill(p,killer){
  burst(p.x,p.y-16,p.id===0?"#ffe537":"#f16b43",13);
  sound(115,.15,"triangle",.04);
 }
+function staticBladeThreat(p,q){
+ if(!p.alive||!q.alive||!p.sword||p.knocked>0||p.stun>.08||p.throwReady)return false;
+ if(p.dir*(q.x-p.x)<8||p.dir*(q.x-p.x)>37)return false;
+ const blade=swordY(p),bodyTop=q.y-hitHeight(q),bodyBottom=q.y-2;
+ if(blade<bodyTop-2||blade>bodyBottom+1)return false;
+ if(q.roll>0&&p.level>0)return false;
+ // Meeting equally high blades stop one another even when no button is held.
+ if(q.sword&&q.knocked<=0&&q.dir===-p.dir&&q.level===p.level&&Math.abs(p.y-q.y)<12)return false;
+ return true;
+}
+function resolveBladeContact(){
+ const a=players[0],b=players[1];
+ if(!a.alive||!b.alive)return;
+ const dist=Math.abs(a.x-b.x),facing=a.dir===1&&b.dir===-1||a.dir===-1&&b.dir===1;
+ if(facing&&a.sword&&b.sword&&dist>20&&dist<64&&Math.abs(a.y-b.y)<11&&a.level===b.level){
+   // A last-moment guard reposition pushes the opponent's blade away.
+   if(a.stanceFlash>.07&&b.stanceFlash<=.07){
+     loseSword(b,140);b.attack=0;b.cool=.2;b.stun=.11;burst((a.x+b.x)/2,swordY(a),"#e7e8dc",8);return;
+   }
+   if(b.stanceFlash>.07&&a.stanceFlash<=.07){
+     loseSword(a,140);a.attack=0;a.cool=.2;a.stun=.11;burst((a.x+b.x)/2,swordY(b),"#e7e8dc",8);return;
+   }
+ }
+ const threatensA=staticBladeThreat(b,a),threatensB=staticBladeThreat(a,b);
+ if(threatensA&&threatensB){
+   const aInitiative=(a.attack>.055?150:0)+Math.abs(a.vx);
+   const bInitiative=(b.attack>.055?150:0)+Math.abs(b.vx);
+   if(Math.abs(aInitiative-bInitiative)<15){
+     a.vx=-a.dir*62;b.vx=-b.dir*62;
+     a.stun=Math.max(a.stun,.07);b.stun=Math.max(b.stun,.07);
+     burst((a.x+b.x)/2,(swordY(a)+swordY(b))/2,"#eae9e6",5);
+   }else if(aInitiative>bInitiative)kill(b,a);
+   else kill(a,b);
+ }else if(threatensA)kill(a,b);
+ else if(threatensB)kill(b,a);
+}
 function combat(){
+ const a=players[0],b=players[1];
+ if(!a.alive||!b.alive)return;
+ // Active lunges must be resolved against the defender's current guard,
+ // then the always-extended idle blade is tested.
  for(let i=0;i<2;i++){
    const p=players[i],q=players[1-i];
    if(!p.alive||!q.alive)continue;
-   const dist=(q.x-p.x)*p.dir,sep=Math.abs(q.y-p.y);
-   if(dist<0||dist>42||sep>48)continue;
-   // A blade moving into another active blade produces a disarm.
-   if(p.sword&&q.sword&&p.stanceFlash>.045&&q.attack>.055&&q.attack<.2&&p.level===q.level&&dist<33&&sep<10){
-     loseSword(q,140);q.attack=0;q.cool=.22;q.stun=.15;
-     burst((p.x+q.x)/2,p.y-22,"#e8e5d0",9);
-     continue;
-   }
-   if(p.roll>0&&q.sword&&q.level===0&&dist<16&&sep<12&&q.dir===-p.dir){kill(p,q);continue}
    if(p.attack<=.065||p.attack>=.205||p.hitId===p.attackId)continue;
+   const dist=p.dir*(q.x-p.x),sep=Math.abs(q.y-p.y);
+   if(dist<0||dist>(p.action==="lunge"?42:29)||sep>45)continue;
    const action=p.action;
-   const reach=action==="lunge"?38:action==="dive"?27:action==="sweep"?23:19;
-   if(dist>reach)continue;
-   let strikeY=action==="dive"?p.y-12:action==="sweep"?p.y-8:action==="punch"?p.y-19:swordY(p);
+   if(q.knocked>0&&dist<21){p.hitId=p.attackId;kill(q,p);continue;}
+   const strikeY=action==="dive"?p.y-12:action==="sweep"?p.y-8:action==="punch"?p.y-19:swordY(p);
    const top=q.y-hitHeight(q),bottom=q.y-2;
    if(strikeY<top-3||strikeY>bottom+3)continue;
    p.hitId=p.attackId;
-   const front=q.dir===-p.dir&&sep<12;
-   const guard=q.sword&&front&&(
-       action==="lunge"&&q.level===p.level||
-       action==="dive"&&q.level>=1||
-       action==="sweep"&&q.level===0||
-       action==="punch"&&q.level===1);
+   const front=q.dir===-p.dir&&sep<14;
+   const guard=q.sword&&q.knocked<=0&&front&&(
+     action==="lunge"&&q.level===p.level||
+     action==="dive"&&q.level>=1||
+     action==="sweep"&&q.level===0||
+     action==="punch"&&q.level===1
+   );
    if(guard){
      burst((p.x+q.x)/2,strikeY,"#f5f1d5",7);
      p.vx=-p.dir*62;q.vx=q.dir*22;
@@ -138,12 +171,11 @@ function combat(){
      else sound(680,.07);
      continue;
    }
-   if(action==="lunge"){kill(q,p);continue;}
-   if(q.knocked>0&&dist<18){kill(q,p);continue;}
+   if(action==="lunge"&&p.sword){kill(q,p);continue;}
    knock(q,p);
  }
+ if(a.alive&&b.alive)resolveBladeContact();
 }
-
 function projectiles(dt){
  for(let i=drops.length-1;i>=0;i--){
    const d=drops[i];d.ttl-=dt;
