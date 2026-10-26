@@ -9,7 +9,7 @@ const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v))
 function sound(note=250,dur=.07,type="square",vol=.025){if(silent)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),gain=audio.createGain();o.type=type;o.frequency.value=note;gain.gain.setValueAtTime(vol,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+dur);o.connect(gain).connect(audio.destination);o.start();o.stop(audio.currentTime+dur)}catch(e){}}
 function burst(x,y,color,n=16){for(let i=0;i<n;i++)particles.push({x,y,vx:rand(-105,105),vy:rand(-125,40),life:rand(.2,.65),max:.65,color,size:rand(1,3)})}
 function fighter(id,x){return {id,x,y:GROUND,vx:0,vy:0,dir:id===0?1:-1,level:1,alive:true,respawn:0,sword:true,attack:0,attackId:0,hitId:-1,cool:0,throwCool:0,step:0,roll:0,stun:0,score:0};}
-function reset(which=mode){mode=which;players=[fighter(0,-10),fighter(1,28)];priority=-1;camera=0;round=0;particles=[];drops=[];elapsed=0;finished=false;started=true;flash=0;shake=0;hideMenus();$("hudRoom").textContent="CENTER";$("hudStage").textContent=stage.toUpperCase();$("hudCenter").textContent="FIGHT";const s=$("stage");stage=s.value;}
+function reset(which=mode){stage=$("stage").value;mode=which;players=[fighter(0,-10),fighter(1,28)];priority=-1;camera=0;round=0;particles=[];drops=[];elapsed=0;finished=false;started=true;flash=0;shake=0;hideMenus();$("hudRoom").textContent="CENTER";$("hudStage").textContent=stage.toUpperCase();$("hudCenter").textContent="FIGHT";}
 function hideMenus(){["menu","result","onlineMenu"].forEach(id=>$(id).classList.add("hidden"))}
 function showMenu(){started=false;finished=false;if(socket){socket.close();socket=null;}connected=false;hideMenus();$("menu").classList.remove("hidden")}
 function trigger(p,kind){if(!p.alive||p.stun>0)return;if(kind==="attack"){if(p.cool>0)return;p.attack=.20;p.cool=.33;p.attackId++;p.hitId=-1;p.vx+=p.dir*(p.sword?60:30);sound(p.sword?450:180,.055)}if(kind==="jump"&&p.y>=GROUND-.1){if(keysFor(p).down&&Math.abs(p.vx)>25){p.roll=.42;p.vx=p.dir*180;sound(180,.07)}else{p.vy=-225;sound(390,.07)}}if(kind==="throw"&&p.sword&&p.throwCool<=0){drops.push({x:p.x+p.dir*12,y:p.y-17,vx:p.dir*250,vy:-9,dir:p.dir,air:true,owner:p.id,ttl:1.6});p.sword=false;p.throwCool=.5;p.attack=0;sound(650,.15,"sawtooth")}}
@@ -52,33 +52,14 @@ if(mode==="online"&&serverHost&&socket?.readyState===1&&elapsed-lastNet>.05){las
 const netKeys=[{},{}];
 function showResult(id){$("winner").textContent=(id===0?"YELLOW":"ORANGE")+" WINS";$("winner").style.color=id===0?"#f8e935":"#ff8562";$("result").classList.remove("hidden");sound(600,.2);setTimeout(()=>sound(900,.35),160)}
 function rect(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h))}
-function backdrop(){const p=palette[stage];rect(0,0,W,H,p.sky);
-const roomIndex=Math.floor((camera+END)/ROOM);
-for(let i=-1;i<=2;i++){const wx=Math.floor(camera/ROOM+i)*ROOM;const xx=Math.round(wx-camera+W/2);rect(xx,0,ROOM,H,p.back);
-if(stage==="castle"){for(let j=0;j<12;j++){const x=xx+j*34;rect(x,18,16,142,j%3?p.back:p.detail);rect(x,0,23,14,p.detail);rect(x+6,38,8,29,"#3c5255");rect(x+5,113,15,43,"#3b4c48")}rect(xx,146,ROOM,8,"#a09b85");}
-if(stage==="wilds"){for(let j=0;j<12;j++){let x=xx+j*37+(j%2)*8;rect(x,44,7,130,"#4a654d");rect(x-9,20,25,56,j%3?"#5e946b":"#79a579");rect(x-20,59,42,16,p.detail)}}
-if(stage==="mines"){for(let j=0;j<9;j++){let x=xx+j*45;rect(x+10,20,6,155,"#292b34");rect(x,38,42,4,"#7b7070");rect(x+7,73,13,5,"#9e927b")}rect(xx,0,ROOM,23,"#24232b")}
-if(stage==="clouds"){for(let j=0;j<10;j++){let x=xx+j*53;rect(x,18+j%3*17,40,5,"#f2f2ec");rect(x+8,12+j%3*17,24,8,"#f2f2ec")}rect(xx,125,ROOM,26,"#d6dfe3")}
-}
-rect(0,GROUND+1,W,H-GROUND,p.ground);rect(0,GROUND,W,4,p.floor);
-for(let x=-(Math.floor(camera)%16);x<W;x+=16){rect(x,GROUND+4,1,40,p.detail);if(stage==="castle")rect(x+3,GROUND+13,8,2,"#554e53")}
-const grid=Math.round(((-END+ROOM/2)-camera)+W/2);for(let i=0;i<=4;i++){const x=grid+i*ROOM;rect(x,155,2,23,"#ffffff44")} 
-if(Math.abs(camera+END-ROOM/2)<ROOM)rect(Math.round(-END-camera+W/2),GROUND-41,3,41,"#f7c858");
-}
-function drawFighter(p){if(!p.alive)return;const x=Math.round(p.x-camera+W/2),y=Math.round(p.y),f=p.dir,c=p.id===0?"#f5e433":"#ef7654",dark=p.id===0?"#b99525":"#b9493f";
-const walking=Math.abs(p.vx)>30&&!p.roll,step=walking?Math.sin(p.step*2)*4:0,duck=p.roll>0,air=p.y<GROUND-2;
-if(duck){rect(x-11,y-9,20,6,c);rect(x+f*5,y-13,8,6,c);rect(x-f*5,y-4,11,4,dark)}
-else {rect(x-4,y-33,9,10,c);rect(x-5,y-22,11,12,c);rect(x-4,y-10,5,9,c);rect(x+2+step,y-10,5,9,dark);rect(x-2-step,y-5,5,5,c);rect(x+3+step,y-5,5,5,dark);
-rect(x+f*4,y-20,10,4,c);rect(x+f*11,y-18,4,3,dark);rect(x+f*2,y-31,2,2,"#24221f");
-if(air)rect(x-2,y-7,6,6,c);}
-if(p.sword){const yy=y-(p.level===2?28:p.level===1?18:10),reach=(p.attack>.05&&p.attack<.19)?29:22;rect(x+f*12-(f<0?reach:0),yy,reach,2,"#dadfe2");rect(x+f*9-(f<0?3:0),yy-4,3,10,"#f4ede3");rect(x+f*8,yy+2,4,3,"#68666a")}
-if(p.attack>.04&&!p.sword){rect(x+f*8,y-16,8,5,c)}
-}
+function backdrop(){window.GameVisuals.backdrop(g,stage,camera)}
+function drawFighter(p){window.GameVisuals.fighter(g,p,camera,elapsed)}
 function draw(){g.save();if(shake)g.translate(Math.round(rand(-shake,shake)),Math.round(rand(-shake/2,shake/2)));backdrop();
 for(const d of drops){let x=d.x-camera+W/2;rect(x-8,d.y,16,2,"#d9dedf");rect(x+5,d.y-4,3,9,"#efd089")}
 players.forEach(drawFighter);
+window.GameVisuals.foreground(g,stage,camera,elapsed);
 for(const p of particles)rect(p.x-camera+W/2,p.y,p.size,p.size,p.color);
-if(priority===0)rect(W-43,7,25,3,"#f8e935");if(priority===1)rect(17,7,25,3,"#f16b43");
+window.GameVisuals.arrow(g,priority,elapsed);window.GameVisuals.finish(g,priority,elapsed);
 if(flash)rect(0,0,W,H,"#fff4dc");
 g.restore();}
 function loop(t){if(!last)last=t;acc+=Math.min(.07,(t-last)/1000);last=t;let n=0;while(acc>=1/60&&n++<5){tick(1/60);acc-=1/60}draw();requestAnimationFrame(loop)}
