@@ -16,14 +16,18 @@ function trigger(p,kind){if(!p.alive||p.stun>0)return;if(kind==="attack"){if(p.c
 function keysFor(p){if(mode==="online"&&p.id!==onlineId)return {};if(p.id===0||mode==="ai"||mode==="online")return {left:keys.a||keys.left,right:keys.d||keys.right,up:keys.w||keys.up,down:keys.s||keys.down,attack:keys.f||keys.attack,jump:keys.g||keys.jump,throw:keys.h||keys.throw};return {left:keys.arrowleft,right:keys.arrowright,up:keys.arrowup,down:keys.arrowdown,attack:keys.k,jump:keys.l,throw:keys[";"]};}
 let aiTimer=0,aiActions={};
 function brain(dt){let p=players[1],q=players[0];if(!p.alive||!q.alive){aiActions={left:false,right:false};return aiActions;}aiTimer-=dt;const distance=q.x-p.x,abs=Math.abs(distance),target=Math.sign(distance)||-1;
-if(aiTimer<=0){aiTimer=rand(.13,.36);aiActions={left:target<0,right:target>0,up:false,down:false};if(abs<78){aiActions.up=p.level<q.level&&Math.random()>.55;aiActions.down=p.level>q.level&&Math.random()>.55;if(p.sword&&abs<27&&p.cool<=0&&Math.random()>.29)trigger(p,"attack");if(!p.sword&&abs<20&&Math.random()>.35)trigger(p,"attack");if(abs<24&&Math.random()<.14)trigger(p,"jump");}else if(abs>100&&Math.random()<.12)trigger(p,"jump");if(p.sword&&abs>55&&abs<108&&Math.random()<.10)trigger(p,"throw");}
+if(aiTimer<=0){aiTimer=rand(.10,.26);
+const heading=(priority===1&&q.x>p.x+18)?-1:target;
+aiActions={left:heading<0,right:heading>0,up:false,down:false};if(abs<78){aiActions.up=p.level<q.level&&Math.random()>.55;aiActions.down=p.level>q.level&&Math.random()>.55;if(p.sword&&abs<27&&p.cool<=0&&Math.random()>.29)trigger(p,"attack");if(!p.sword&&abs<20&&Math.random()>.35)trigger(p,"attack");if(abs<24&&Math.random()<.14)trigger(p,"jump");}else if(abs>100&&Math.random()<.12)trigger(p,"jump");if(p.sword&&abs>55&&abs<108&&Math.random()<.10)trigger(p,"throw");}
 return aiActions;}
 function control(p,k={},dt){if(!p.alive)return;p.cool=Math.max(0,p.cool-dt);p.throwCool=Math.max(0,p.throwCool-dt);p.attack=Math.max(0,p.attack-dt);p.roll=Math.max(0,p.roll-dt);p.stun=Math.max(0,p.stun-dt);
 if(p.stun>0)return;
-let dir=(k.right?1:0)-(k.left?1:0);if(dir&&p.roll===0){p.dir=dir;const target=dir*(p.attack>0?90:125);p.vx+=(target-p.vx)*Math.min(1,dt*13)}else if(p.roll<=0)p.vx*=Math.max(0,1-dt*12);
+p.crouch=!!k.down&&p.roll<=0&&!k.left&&!k.right;
+let dir=(k.right?1:0)-(k.left?1:0);if(dir&&p.roll===0){p.dir=dir;const target=dir*(p.attack>0?90:p.sword?125:142);p.vx+=(target-p.vx)*Math.min(1,dt*13)}else if(p.roll<=0)p.vx*=Math.max(0,1-dt*12);
 if(p.roll>0)p.vx=p.dir*170;
+if(k.down&&dir&&Math.abs(p.vx)>70&&!p.prevDown&&p.roll<=0){p.roll=.32;p.level=0; p.vx=dir*178;sound(140,.05);}
 if(k.up&&!p.prevUp)p.level=clamp(p.level+1,0,2);
-if(k.down&&!p.prevDown&&p.roll<=0){if(!p.sword){const pick=drops.find(d=>!d.air&&Math.abs(d.x-p.x)<16);if(pick){p.sword=true;drops.splice(drops.indexOf(pick),1);sound(420,.06)}}else p.level=clamp(p.level-1,0,2)}
+if(k.down&&!p.prevDown&&p.roll<=0&&!dir){if(!p.sword){const pick=drops.find(d=>!d.air&&Math.abs(d.x-p.x)<16);if(pick){p.sword=true;drops.splice(drops.indexOf(pick),1);sound(420,.06)}}else p.level=clamp(p.level-1,0,2)}
 p.prevUp=!!k.up;p.prevDown=!!k.down;
 if(k.attack&&!p.prevAttack)trigger(p,"attack");if(k.jump&&!p.prevJump)trigger(p,"jump");if(k.throw&&!p.prevThrow)trigger(p,"throw");
 p.prevAttack=!!k.attack;p.prevJump=!!k.jump;p.prevThrow=!!k.throw;}
@@ -39,7 +43,7 @@ if(d.ttl<=0||Math.abs(d.x)>END+300)drops.splice(i,1)}}
 function tick(dt){elapsed+=dt;flash=Math.max(0,flash-dt);shake=Math.max(0,shake-dt*16);
 if(!started||finished)return;if(mode==="online"&&!serverHost){return;}
 const ai=mode==="ai"?brain(dt):null;players.forEach((p,i)=>{if(!p.alive){p.respawn-=dt;if(p.respawn<=0){const opponent=players[1-i],want=p.id===0?-1:1;p.x=clamp(opponent.x+want*80,-END+40,END-40);p.y=GROUND;p.vy=0;p.alive=true;p.sword=true;p.level=1;p.attack=0;p.stun=.15;burst(p.x,p.y-12,p.id===0?"#ffe84c":"#ff7858",9)}return}
-const k=i===1&&mode==="ai"?ai:mode==="online"?netKeys[i]||{}:keysFor(p);control(p,k,dt);p.vy+=525*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+const k=i===1&&mode==="ai"?ai:mode==="online"?(i===0?keysFor(p):(netKeys[1]||{})):keysFor(p);control(p,k,dt);p.vy+=525*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
 if(p.y>=GROUND){p.y=GROUND;p.vy=0}p.x=clamp(p.x,-END-10,END+10);p.step+=Math.abs(p.vx)*dt/17;
 });
 combat();projectiles(dt);
@@ -73,8 +77,8 @@ function connect(){const url=$("serverUrl").value.trim(),room=$("roomCode").valu
 try{socket=new WebSocket(url);localStorage.setItem("fencingWs",url);$("onlineStatus").textContent="서버 연결 중...";
 socket.onopen=()=>socket.send(JSON.stringify({type:"join",room,stage:$("stage").value}));
 socket.onmessage=event=>{let m;try{m=JSON.parse(event.data)}catch{return}
-if(m.type==="joined"){onlineId=m.playerId;serverHost=onlineId===0;connected=true;$("onlineStatus").textContent=onlineId===0?"방 생성 완료 · 상대 접속 대기":"상대에게 연결했습니다";if(onlineId===0){reset("online");$("hudCenter").textContent="WAITING FOR RIVAL"}}
-if(m.type==="start"){if(!started)reset("online");$("hudCenter").textContent="FIGHT"}
+if(m.type==="joined"){onlineId=m.playerId;serverHost=onlineId===0;connected=true;$("onlineStatus").textContent=onlineId===0?"방 생성 완료 · 상대 접속 대기":"상대에게 연결했습니다";mode="online";started=false}
+if(m.type==="start"){if(!started){reset("online");sendKeys()}$("hudCenter").textContent="FIGHT"}
 if(m.type==="input"&&serverHost){netKeys[1]=m.keys||{}}
 if(m.type==="state"&&!serverHost){players=m.players||players;camera=m.camera||0;priority=m.priority;round=m.round;drops=m.drops||[];elapsed=m.elapsed;started=true;if(!$("onlineMenu").classList.contains("hidden"))hideMenus();if(m.finished&&!finished){finished=true;showResult(priority)}}
 if(m.type==="opponent_left"){showMenu();alert("상대가 연결을 종료했습니다.")}
