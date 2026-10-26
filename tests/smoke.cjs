@@ -123,3 +123,35 @@ test("wilds and clouds include traversable hazards rather than just paintings",(
  assert.equal(terrain.isGap("castle",-587),false);
  assert.equal(terrain.isGap("clouds",250),true);
 });
+
+test("a timely stance change disarms an opposing held blade",()=>{
+ const g=boot();g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const [a,b]=g.window.__state().players;
+ a.x=0;a.y=174;a.dir=1;a.level=1;a.sword=true;a.stanceFlash=.12;
+ b.x=45;b.y=174;b.dir=-1;b.level=1;b.sword=true;b.stanceFlash=0;
+ g.window.__debug.combat();
+ assert.equal(b.sword,false,"defender should lose blade on timed high-level contact");
+ assert.equal(a.alive,true);
+});
+test("cloud tiles crumble from standing and are reset for a new game",()=>{
+ const g=boot();g.elt("stage").value="clouds";
+ g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const terrain=g.window.FencingTerrain;
+ assert.equal(terrain.isGap("clouds",-10),false);
+ g.frame(55);
+ assert.equal(terrain.isGap("clouds",-10),true,"remaining on a cloud tile should break it");
+ g.modes.find(x=>x.dataset.mode==="local").onclick();
+ assert.equal(terrain.isGap("clouds",-10),false,"restarting should repair cloud tiles");
+});
+test("mine tunnel ceilings stop high jumps and prevent overhead throws",()=>{
+ const g=boot();g.elt("stage").value="mines";
+ g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const a=g.window.__state().players[0];
+ a.x=-120;a.y=174;a.lastGround=true;a.level=2;a.throwReady=true;
+ g.window.__debug.trigger(a,"throw");
+ assert.equal(a.sword,true,"mine ceiling should block overhead sword throws");
+ g.window.__debug.trigger(a,"jump");
+ assert.ok(a.vy<0,"jump should start");
+ g.frame(35);
+ assert.ok(a.y>=164,"head should not pass through mine ceiling");
+});
