@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#161516">
+<title>Fencing Duel — 픽셀 검술 대결</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="shell">
+  <div class="frame" id="frame">
+    <canvas id="game" width="384" height="216" aria-label="2인용 픽셀 검술 대결 게임"></canvas>
+    <div id="scanlines" aria-hidden="true"></div>
+    <div class="overlay" id="menu">
+      <div class="menu-inner">
+        <div class="eyebrow">RETRO FENCING • TUG OF WAR</div>
+        <h1>FENCING<br><span>DUEL</span></h1>
+        <div class="underline"></div>
+        <p class="subtitle">마지막에 승리한 쪽만 상대 진영으로 전진할 수 있습니다.</p>
+        <div class="mode-buttons">
+          <button data-mode="ai">혼자 플레이 <small>VS CPU</small></button>
+          <button data-mode="local">2인 대전 <small>LOCAL</small></button>
+          <button data-mode="online">온라인 대전 <small>ONLINE</small></button>
+        </div>
+        <div class="maps">
+          <label for="stage">스테이지</label>
+          <select id="stage">
+            <option value="castle">CASTLE · 성</option>
+            <option value="wilds">WILDS · 숲</option>
+            <option value="mines">MINES · 광산</option>
+            <option value="clouds">CLOUDS · 하늘</option>
+          </select>
+        </div>
+        <p class="instructions">1P A/D 이동 · W/S 검 높이 · F 공격 · G 점프 · H 던지기<br>2P ←/→ 이동 · ↑/↓ 검 높이 · K 공격 · L 점프 · ; 던지기<br>이동 중 아래 + 점프로 구르기 · ESC 메뉴</p>
+        <p class="legal">비공식 팬 프로젝트 · 모든 배경과 캐릭터는 코드로 새로 제작</p>
+      </div>
+    </div>
+    <div class="overlay hidden" id="onlineMenu">
+      <div class="menu-inner online-inner">
+        <h2>ONLINE MATCH</h2>
+        <p>Render에 배포한 WebSocket 서버 주소를 입력하세요.</p>
+        <label for="serverUrl">SERVER URL</label>
+        <input id="serverUrl" placeholder="wss://your-service.onrender.com" autocomplete="url">
+        <label for="roomCode">ROOM CODE (영문/숫자 4~10자)</label>
+        <input id="roomCode" value="DUEL01" maxlength="10" autocomplete="off">
+        <div class="stack"><button id="connectBtn">방 입장 / 생성</button><button id="backBtn" class="quiet">뒤로</button></div>
+        <p class="status" id="onlineStatus"></p>
+      </div>
+    </div>
+    <div class="overlay hidden" id="result">
+      <div class="menu-inner">
+        <div class="eyebrow">MATCH OVER</div>
+        <h2 id="winner">YELLOW WINS</h2>
+        <button id="again">다시 플레이</button>
+        <button class="quiet" id="resultBack">메인 메뉴</button>
+      </div>
+    </div>
+    <div class="hud" id="hud"><span id="hudStage">CASTLE</span><span id="hudCenter">READY</span><span id="hudRoom">3 / 5</span></div>
+    <button class="mute" id="mute" title="소리 끄기">♫</button>
+  </div>
+  <div id="touch" aria-label="모바일 터치 컨트롤">
+    <div class="touch-side"><button data-key="left">◀</button><button data-key="right">▶</button><button data-key="up">▲</button><button data-key="down">▼</button></div>
+    <div class="touch-side"><button data-key="throw">던지기</button><button data-key="jump">점프</button><button data-key="attack" class="accent">공격</button></div>
+  </div>
+  <p class="footnote">화면을 가로로 돌리면 더욱 크게 플레이할 수 있습니다. · 모바일: 화면 버튼 조작</p>
+</main>
+<script src="./game.js" defer></script>
+</body>
+</html>
