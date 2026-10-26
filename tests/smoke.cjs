@@ -33,7 +33,7 @@ function boot(){
   const visuals=fs.readFileSync(path.join(root,"visuals.js"),"utf8");
   let game=fs.readFileSync(path.join(root,"game.js"),"utf8");
   // Read-only in-test introspection; the shipped source is left unchanged.
-  game=game.replace("requestAnimationFrame(loop);","window.__state=()=>({players,camera,priority,started,mode,stage});requestAnimationFrame(loop);");
+  game=game.replace("requestAnimationFrame(loop);","window.__state=()=>({players,camera,priority,started,mode,stage});window.__debug={trigger,combat,kill,control,projectiles,tick};requestAnimationFrame(loop);");
   assert.ok(game.includes("window.__state"),"test introspection could not be installed");
   vm.runInContext(visuals,sandbox,{filename:"visuals.js"});
   vm.runInContext(game,sandbox,{filename:"game.js"});
@@ -77,4 +77,49 @@ test("online host stays in waiting room, then receives local input",()=>{
  const x=g.window.__state().players[0].x;
  g.input("d");g.frame(24);g.input("d",false);
  assert.ok(g.window.__state().players[0].x>x+5,"online host player must receive local controls");
+});
+
+test("an armed fencer's extended blade matters without attacking",()=>{
+ const g=boot();g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const [a,b]=g.window.__state().players;
+ a.x=0;a.y=174;a.dir=1;a.sword=true;a.level=1;
+ b.x=30;b.y=174;b.dir=-1;b.sword=false;b.stun=0;
+ g.window.__debug.combat();
+ assert.equal(b.alive,false,"unarmed challenger should not walk through a drawn blade");
+ assert.equal(g.window.__state().priority,0);
+});
+test("matching idle blade heights create a passive guard",()=>{
+ const g=boot();g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const [a,b]=g.window.__state().players;
+ a.x=0;a.y=174;a.dir=1;a.sword=true;a.level=1;
+ b.x=30;b.y=174;b.dir=-1;b.sword=true;b.level=1;
+ g.window.__debug.combat();
+ assert.equal(a.alive,true);
+ assert.equal(b.alive,true);
+});
+test("a downed opponent can be finished by an unarmed punch",()=>{
+ const g=boot();g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const [a,b]=g.window.__state().players;
+ a.x=0;a.dir=1;a.sword=false;a.cool=0;a.knocked=0;a.stun=0;
+ b.x=15;b.sword=false;b.knocked=.9;b.stun=.25;b.y=a.y;
+ g.window.__debug.trigger(a,"attack");a.attack=.15;
+ g.window.__debug.combat();
+ assert.equal(b.alive,false);
+ assert.equal(g.window.__state().priority,0);
+});
+test("a fighter eventually respawns ahead of the advancing opponent",()=>{
+ const g=boot();g.modes.find(x=>x.dataset.mode==="local").onclick();
+ const [a,b]=g.window.__state().players;a.x=0;b.x=24;
+ g.window.__debug.kill(b,a);
+ assert.equal(b.alive,false);
+ assert.equal(g.window.__state().priority,0);
+ g.frame(250);
+ assert.equal(b.alive,true);
+ assert.ok(b.x>a.x,"defender should return ahead of the advancing fencer");
+});
+test("wilds and clouds include traversable hazards rather than just paintings",()=>{
+ const g=boot();const terrain=g.window.FencingTerrain;
+ assert.equal(terrain.isGap("wilds",-587),true);
+ assert.equal(terrain.isGap("castle",-587),false);
+ assert.equal(terrain.isGap("clouds",250),true);
 });
