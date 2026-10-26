@@ -8,28 +8,40 @@ const palette={castle:{sky:"#b5bba7",back:"#81947d",ground:"#413846",floor:"#827
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function sound(note=250,dur=.07,type="square",vol=.025){if(silent)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),gain=audio.createGain();o.type=type;o.frequency.value=note;gain.gain.setValueAtTime(vol,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+dur);o.connect(gain).connect(audio.destination);o.start();o.stop(audio.currentTime+dur)}catch(e){}}
 function burst(x,y,color,n=16){for(let i=0;i<n;i++)particles.push({x,y,vx:rand(-105,105),vy:rand(-125,40),life:rand(.2,.65),max:.65,color,size:rand(1,3)})}
-function fighter(id,x){return {id,x,y:GROUND,vx:0,vy:0,dir:id===0?1:-1,level:1,alive:true,respawn:0,sword:true,attack:0,attackId:0,hitId:-1,cool:0,throwCool:0,step:0,roll:0,stun:0,score:0,crouch:false,throwReady:false,holdUp:0,knocked:0,knockHits:0,hitMemory:0,stanceFlash:0,action:"idle",airAction:false,frame:0,lastGround:true};}
+function fighter(id,x){return {id,x,y:GROUND,vx:0,vy:0,dir:id===0?1:-1,level:1,alive:true,respawn:0,sword:true,attack:0,attackId:0,hitId:-1,cool:0,throwCool:0,step:0,roll:0,stun:0,score:0,wallKick:false,crouch:false,throwReady:false,holdUp:0,knocked:0,knockHits:0,hitMemory:0,stanceFlash:0,action:"idle",airAction:false,frame:0,lastGround:true};}
 const swordY=p=>p.y-([12,21,31][p.level]);
 const hitHeight=p=>p.roll>0?12:p.crouch?17:p.knocked>0?9:36;
-const gapAt=x=>window.FencingTerrain?.isGap(stage,x)??false;
+const terrain=()=>window.FencingTerrain;
+const gapAt=x=>terrain()?.isGap(stage,x)??false;
+function safeSpawn(x){
+ x=clamp(x,-END+28,END-28);
+ if(!gapAt(x))return x;
+ for(let d=12;d<ROOM;d+=12){
+   if(x+d<END-28&&!gapAt(x+d))return x+d;
+   if(x-d>-END+28&&!gapAt(x-d))return x-d;
+ }
+ return x;
+}
 function loseSword(p,vx=90){if(!p.sword)return;p.sword=false;p.throwReady=false;drops.push({x:p.x+p.dir*4,y:p.y-19,vx:p.dir*vx,vy:-85,dir:p.dir,air:false,owner:p.id,ttl:8});sound(730,.065);}
 function knock(p,attacker){if(p.knocked>0)return;p.knockHits++;p.hitMemory=1.6;p.stun=.3;p.vx=attacker.dir*115;loseSword(p);if(p.knockHits>=2||attacker.action!=="punch"){p.knocked=1.05;p.stun=.48;p.action="down";}else p.action="hit";burst(p.x,p.y-20,"#f5deb1",6);sound(210,.08);}
 
-function reset(which=mode){stage=$("stage").value;mode=which;players=[fighter(0,-10),fighter(1,28)];priority=-1;camera=0;round=0;particles=[];drops=[];elapsed=0;finished=false;started=true;flash=0;shake=0;hideMenus();$("hudRoom").textContent="CENTER";$("hudStage").textContent=stage.toUpperCase();$("hudCenter").textContent="FIGHT";}
+function reset(which=mode){stage=$("stage").value;mode=which;terrain()?.resetDynamic();aiTimer=0;aiActions={};players=[fighter(0,-10),fighter(1,28)];priority=-1;camera=0;round=0;particles=[];drops=[];elapsed=0;finished=false;started=true;flash=0;shake=0;hideMenus();$("hudRoom").textContent="CENTER";$("hudStage").textContent=stage.toUpperCase();$("hudCenter").textContent="FIGHT";}
 function hideMenus(){["menu","result","onlineMenu"].forEach(id=>$(id).classList.add("hidden"))}
 function showMenu(){started=false;finished=false;if(socket){socket.close();socket=null;}connected=false;hideMenus();$("menu").classList.remove("hidden")}
 function trigger(p,kind){
 if(!p.alive||p.stun>0||p.knocked>0)return;
 if(kind==="jump"){
- if(p.y>=GROUND-1||p.lastGround){
+ if(p.lastGround){
   if(p.roll>0){p.vy=-195;p.roll=Math.min(p.roll,.21);p.action="rolljump"}
   else{p.vy=-245;p.action="jump"}
-  p.lastGround=false;sound(380,.055);
+  p.lastGround=false;p.wallKick=false;sound(380,.055);
+ }else if(!p.wallKick&&p.y>GROUND+6&&p.y<GROUND+44&&terrain()?.nearLedge(stage,p.x)){
+  p.wallKick=true;p.vy=-205;p.vx=-p.dir*124;p.dir*=-1;p.action="walljump";sound(330,.075);
  }
  return;
 }
 if(kind==="throw"){
- if(p.sword&&p.throwCool<=0){drops.push({x:p.x+p.dir*14,y:p.y-26,vx:p.dir*300,vy:-10,dir:p.dir,air:true,owner:p.id,ttl:2});p.sword=false;p.throwReady=false;p.throwCool=.42;p.attack=0;p.action="throw";sound(580,.12,"sawtooth");}
+ if(p.sword&&p.throwCool<=0&&terrain()?.ceilingY(stage,p.x)===null){drops.push({x:p.x+p.dir*14,y:p.y-26,vx:p.dir*300,vy:-10,dir:p.dir,air:true,owner:p.id,ttl:2});p.sword=false;p.throwReady=false;p.throwCool=.42;p.attack=0;p.action="throw";sound(580,.12,"sawtooth");}
  return;
 }
 if(kind!=="attack"||p.cool>0)return;
@@ -63,7 +75,7 @@ function control(p,k={},dt){
  }
  if(p.stun>0)return;
  const dir=Number(!!k.right)-Number(!!k.left);
- const grounded=p.lastGround||p.y>=GROUND-1;
+ const grounded=p.lastGround;
  p.crouch=!!k.down&&grounded&&p.roll<=0;
  if(p.sword&&k.up&&p.level===2){p.holdUp+=dt;if(p.holdUp>.16)p.throwReady=true}
  else if(!k.up){p.holdUp=0}
@@ -206,9 +218,9 @@ function tick(dt){
      p.respawn-=dt;
      if(p.respawn<=0){
        const leader=players[priority],ahead=p.id===0?-1:1;
-       p.x=clamp(leader&&leader.alive?leader.x+(priority===0?85:-85):p.x+ahead*80,-END+28,END-28);
+       p.x=safeSpawn(leader&&leader.alive?leader.x+(priority===0?85:-85):p.x+ahead*80);
        p.y=GROUND;p.vy=0;p.alive=true;p.sword=true;p.level=1;
-       p.knocked=0;p.stun=.16;p.knockHits=0;p.attack=0;p.action="idle";p.lastGround=true;
+       p.knocked=0;p.stun=.16;p.knockHits=0;p.attack=0;p.action="idle";p.wallKick=false;p.lastGround=true;
        burst(p.x,p.y-18,p.id===0?"#ffe84c":"#ff7858",9);
      }
      return;
@@ -217,8 +229,10 @@ function tick(dt){
    control(p,k,dt);
    p.vy+=535*dt;
    p.x+=p.vx*dt;p.y+=p.vy*dt;
+   const ceil=terrain()?.ceilingY(stage,p.x);
+   if(ceil!==null&&ceil!==undefined&&p.vy<0&&p.y-37<ceil){p.y=ceil+37;p.vy=0;}
    const footGap=gapAt(p.x);
-   if(!footGap&&p.vy>=0&&p.y>=GROUND){p.y=GROUND;p.vy=0;p.lastGround=true;}
+   if(!footGap&&p.vy>=0&&p.y>=GROUND){p.y=GROUND;p.vy=0;p.lastGround=true;p.wallKick=false;}
    else p.lastGround=false;
    if(p.y>H+30){kill(p,players[1-i]);return}
    const activeScreen=Math.round(camera/ROOM);
@@ -229,6 +243,7 @@ function tick(dt){
    p.x=clamp(p.x,-END-14,END+14);
    p.step+=Math.abs(p.vx)*dt/17;
  });
+ terrain()?.updateDynamic(stage,players,dt);
  combat();projectiles(dt);
  for(let i=particles.length-1;i>=0;i--){
    const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=350*dt;
